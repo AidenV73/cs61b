@@ -5,7 +5,7 @@ import java.util.Observable;
 
 
 /** The state of a game of 2048.
- *  @author TODO: YOUR NAME HERE
+ *  @author Aiden TODO: YOUR NAME HERE
  */
 public class Model extends Observable {
     /** Current contents of the board. */
@@ -106,6 +106,7 @@ public class Model extends Observable {
      *    value, then the leading two tiles in the direction of motion merge,
      *    and the trailing tile does not.
      * */
+
     public boolean tilt(Side side) {
         boolean changed;
         changed = false;
@@ -113,13 +114,70 @@ public class Model extends Observable {
         // TODO: Modify this.board (and perhaps this.score) to account
         // for the tilt to the Side SIDE. If the board changed, set the
         // changed local variable to true.
+        board.setViewingPerspective(side);
 
+        for (int col = 0; col < board.size(); col += 1){
+            changed |= tilt_col_north(col);
+        }
+
+        board.setViewingPerspective(Side.NORTH);
         checkGameOver();
         if (changed) {
             setChanged();
         }
         return changed;
     }
+
+    private boolean tilt_col_north(int col) {
+        boolean changed = false;
+        int last_merged_row = board.size();
+        for (int row = board.size() - 2; row >= 0; row -= 1) {
+            // Merge
+            Tile current = board.tile(col, row);
+            if (current == null){
+                continue;
+            }
+
+            int target_row = row;
+
+            while (target_row + 1 < board.size() && board.tile(col, target_row + 1) == null){
+                target_row += 1;
+            }
+
+            if (target_row + 1 < board.size()){
+                Tile above = board.tile(col, target_row + 1);
+
+                if (above != null &&
+                above.value() == current.value() &&
+                target_row + 1 != last_merged_row){
+                    board.move(col, target_row + 1, current);
+                    changed = true;
+                    score += current.value() * 2;
+                    last_merged_row = target_row + 1;
+                    continue;
+
+                }
+            }
+
+            if (target_row != row){
+                board.move(col, target_row, current);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+
+   private Tile same_tile_front(int col, Tile a){
+        int current_row = a.row();
+       for (int i = current_row + 1; i <= board.size(); i += 1){
+           Tile check_tile = board.tile(col, current_row);
+           if (check_tile.value() == a.value()){
+               return check_tile;
+           }
+       }
+       return null;
+   }
 
     /** Checks if the game is over and sets the gameOver variable
      *  appropriately.
@@ -138,6 +196,13 @@ public class Model extends Observable {
      * */
     public static boolean emptySpaceExists(Board b) {
         // TODO: Fill in this function.
+        for (int i = 0; i < 4; i += 1){
+            for (int j = 0; j < 4; j += 1){
+                if (b.tile(i, j) == null){
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
@@ -148,6 +213,18 @@ public class Model extends Observable {
      */
     public static boolean maxTileExists(Board b) {
         // TODO: Fill in this function.
+         int MAX_PIECE = 2048;
+         for (int i = 0; i < 4; i += 1){
+             for (int j = 0; j < 4; j += 1){
+                Tile x = b.tile(i, j);
+                if (x == null){
+                    continue;
+                }
+                if (x.value() == MAX_PIECE){
+                    return true;
+                }
+             }
+         }
         return false;
     }
 
@@ -159,6 +236,30 @@ public class Model extends Observable {
      */
     public static boolean atLeastOneMoveExists(Board b) {
         // TODO: Fill in this function.
+        if (emptySpaceExists(b)){
+            return true;
+        }
+        else{
+            for (int i = 0; i < 3; i += 1){
+                for (int j = 0; j < 3; j += 1){
+                    int x = b.tile(i, j).value();
+                    int up_x = b.tile(i + 1, j).value();
+                    int right_x = b.tile(i, j+1).value();
+                    if ((x == up_x) || (x == right_x)){
+                        return true;
+                    }
+                }
+            }
+            for (int i = 0; i < 3; i += 1){
+                int x = b.tile(3, i).value();
+                int up_x = b.tile(3, i + 1).value();
+                int y = b.tile(i, 3).value();
+                int right_y = b.tile(i + 1, 3).value();
+                if ((x == up_x) || (y == right_y)){
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
