@@ -1,5 +1,7 @@
 package randomizedtest;
 
+import java.util.NoSuchElementException;
+
 /** Array based list.
  *  @author Josh Hug
  */
@@ -35,11 +37,11 @@ public class BuggyAList<Item> {
 
     /** Inserts X into the back of the list. */
     public void addLast(Item x) {
-        if (size == items.length) {
+        if (size == items.length){
             resize(size * 2);
         }
         items[size] = x;
-        size = size + 1;
+        size += 1;
     }
 
     /** Returns the item from the back of the list. */
@@ -59,12 +61,15 @@ public class BuggyAList<Item> {
     /** Deletes item from back of the list and
       * returns deleted item. */
     public Item removeLast() {
-        if ((size < items.length / 4) && (size > 4)) {
-            resize(size / 4);
+        if (size != 0) {
+            Item x = getLast();
+            items[size - 1] = null;
+            size = size - 1;
+            if ((size < items.length / 4) && (size > 4)) {
+                resize(size / 4);
+            }
+            return x;
         }
-        Item x = getLast();
-        items[size - 1] = null;
-        size = size - 1;
-        return x;
+        throw new NoSuchElementException("Cannot remove from empty list");
     }
 }
