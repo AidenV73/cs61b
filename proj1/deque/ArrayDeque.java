@@ -21,6 +21,9 @@ public class ArrayDeque<T> {
             resize(size * 2);
         }
         items[nextLast] = item;
+        if (nextFirst == nextLast){
+            nextFirst = movePtr(nextFirst - 1);
+        }
         nextLast = movePtr(nextLast + 1);
         size += 1;
     }
@@ -30,6 +33,9 @@ public class ArrayDeque<T> {
             resize(size * 2);
         }
         items[nextFirst] = item;
+        if (nextFirst == nextLast) {
+            nextLast = movePtr(nextLast + 1);
+        }
         nextFirst = movePtr(nextFirst - 1);
         size += 1;
     }
@@ -45,7 +51,7 @@ public class ArrayDeque<T> {
             T tmp = items[nextLast];
             items[nextLast] = null;
             size -= 1;
-            if (size == items.length / 4) {
+            if (size < items.length / 4) {
                 resize(items.length / 2);
             }
             return tmp;
@@ -58,7 +64,7 @@ public class ArrayDeque<T> {
             T tmp = items[nextFirst];
             items[nextFirst] = null;
             size -= 1;
-            if (size == items.length / 4) {
+            if (size < items.length / 4) {
                 resize(items.length / 2);
             }
             return tmp;
@@ -76,6 +82,7 @@ public class ArrayDeque<T> {
     /** Resize if current size too small (do size * 2) / size too big (do size / 4) */
     public void resize(int capacity){
         T[] a = (T[]) new Object[capacity];
+
         for (int i = 0; i < size; i += 1){
             a[i] = get(i);
         }
