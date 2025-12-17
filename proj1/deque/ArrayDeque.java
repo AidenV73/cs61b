@@ -4,13 +4,13 @@ public class ArrayDeque<T> {
     // Initialize items, size，middle and array
     T []items;
     int size;
-    int nextFirst;
-    int nextLast;
+    int first; // Points to the first element
+    int rear; // Points to the last element
     public ArrayDeque(){
         items = (T[]) new Object[8];
         size = 0;
-        nextFirst = items.length / 2;
-        nextLast = items.length / 2;
+        first = items.length / 2;
+        rear = first;
     }
     public int movePtr(int ptr){
         return (ptr + items.length) % items.length;
@@ -20,11 +20,11 @@ public class ArrayDeque<T> {
         if (size == items.length){
             resize(size * 2);
         }
-        items[nextLast] = item;
-        if (nextFirst == nextLast){
-            nextFirst = movePtr(nextFirst - 1);
+        rear = movePtr(rear + 1);
+        if (isEmpty()){
+            first = rear;
         }
-        nextLast = movePtr(nextLast + 1);
+        items[rear] = item;
         size += 1;
     }
     /** Adds an item of type T to the front of the deque.  (O(1)) */
@@ -32,41 +32,35 @@ public class ArrayDeque<T> {
         if (size == items.length){
             resize(size * 2);
         }
-        items[nextFirst] = item;
-        if (nextFirst == nextLast) {
-            nextLast = movePtr(nextLast + 1);
+        first = movePtr(first - 1);
+        if (isEmpty()){
+            rear = first;
         }
-        nextFirst = movePtr(nextFirst - 1);
+        items[first] = item;
         size += 1;
     }
     /** Gets the item at the given index, where 0 is the front, 1 is the next item, and so forth. If no such item exists, returns null. */
     public T get(int i){
-        int index = movePtr(nextFirst + i + 1);
+        int index = movePtr(first + i);
         return items[index];
     }
     /** Removes and returns the item at the last of the deque. If no such item exists, returns null. */
     public T removeLast(){
         if (!isEmpty()) {
-            nextLast = movePtr(nextLast - 1);
-            T tmp = items[nextLast];
-            items[nextLast] = null;
+            T tmp = items[rear];
+            items[rear] = null;
             size -= 1;
-            if (size < items.length / 4) {
-                resize(items.length / 2);
-            }
+            rear = movePtr(rear - 1);
             return tmp;
-        } return null;
+         } return null;
     }
     /** Removes and returns the item at the front of the deque. If no such item exists, returns null. */
     public T removeFirst(){
         if (!isEmpty()) {
-            nextFirst = movePtr(nextFirst + 1);
-            T tmp = items[nextFirst];
-            items[nextFirst] = null;
+            T tmp = items[first];
+            items[first] = null;
             size -= 1;
-            if (size < items.length / 4) {
-                resize(items.length / 2);
-            }
+            first = movePtr(first + 1);
             return tmp;
         } return null;
 
@@ -86,8 +80,8 @@ public class ArrayDeque<T> {
         for (int i = 0; i < size; i += 1){
             a[i] = get(i);
         }
-        nextFirst = capacity - 1; // Back of the line array
-        nextLast = size;
+        first = 0;
+        rear = size - 1;
         items = a;
     }
 }
