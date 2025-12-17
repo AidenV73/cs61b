@@ -1,6 +1,6 @@
 package deque;
 
-public class ArrayDeque<T> {
+public class ArrayDeque<T> implements Deque<T>{
     // Initialize items, size，middle and array
     T []items;
     int size;
@@ -16,6 +16,7 @@ public class ArrayDeque<T> {
         return (ptr + items.length) % items.length;
     }
     /** Adds an item of type T to the back of the deque.  (O(1)) */
+    @Override
     public void addLast(T item){
         if (size == items.length){
             resize(size * 2);
@@ -27,7 +28,9 @@ public class ArrayDeque<T> {
         items[rear] = item;
         size += 1;
     }
+
     /** Adds an item of type T to the front of the deque.  (O(1)) */
+    @Override
     public void addFirst(T item){
         if (size == items.length){
             resize(size * 2);
@@ -39,12 +42,16 @@ public class ArrayDeque<T> {
         items[first] = item;
         size += 1;
     }
+
     /** Gets the item at the given index, where 0 is the front, 1 is the next item, and so forth. If no such item exists, returns null. */
+    @Override
     public T get(int i){
         int index = movePtr(first + i);
         return items[index];
     }
+
     /** Removes and returns the item at the last of the deque. If no such item exists, returns null. */
+    @Override
     public T removeLast(){
         if (!isEmpty()) {
             T tmp = items[rear];
@@ -54,7 +61,9 @@ public class ArrayDeque<T> {
             return tmp;
          } return null;
     }
+
     /** Removes and returns the item at the front of the deque. If no such item exists, returns null. */
+    @Override
     public T removeFirst(){
         if (!isEmpty()) {
             T tmp = items[first];
@@ -65,14 +74,13 @@ public class ArrayDeque<T> {
         } return null;
 
     }
+
     /** Returns the number of items in the deque. (O(1)) */
+    @Override
     public int size(){
         return size;
     }
-    /** Returns true if deque is empty, false otherwise. */
-    public boolean isEmpty(){
-        return size() == 0;
-    }
+
     /** Resize if current size too small (do size * 2) / size too big (do size / 4) */
     public void resize(int capacity){
         T[] a = (T[]) new Object[capacity];
@@ -83,6 +91,16 @@ public class ArrayDeque<T> {
         first = 0;
         rear = size - 1;
         items = a;
+    }
+
+    @Override
+    public void printDeque(){
+        if (isEmpty()){
+            return;
+        }
+        for(int i = first; i < size; i += 1){
+            System.out.println(get(i));
+        }
     }
 }
 
