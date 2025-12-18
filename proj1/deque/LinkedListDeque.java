@@ -118,7 +118,6 @@ public class LinkedListDeque<T> implements Deque<T>{
         for (int i = 0; i < index; i += 1) {
             ptr = ptr.next;
         }
-        size -= 1;
         return ptr.item;
     }
 }
