@@ -67,7 +67,7 @@ public class CapersRepository {
 
         String existedContent = readContentsAsString(f);
 
-        String updatedContent = existedContent + text + "/n";
+        String updatedContent = existedContent + text + "\n";
 
         writeContents(f, updatedContent);
 
