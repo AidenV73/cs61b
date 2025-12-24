@@ -40,8 +40,8 @@ public class Repository {
      */
     public static final File index = join(GITLET_DIR, "index");
 
-    /** The directory to save head */
-    public static String head;
+    /** The HEAD to points on current working commit */
+    public static File head = join(GITLET_DIR, "head");
 
     /** The directory to save blob */
     public static final File objects = join(GITLET_DIR, "objects");
@@ -56,8 +56,11 @@ public class Repository {
     public static void initialCommand() {
         GITLET_DIR.mkdir();
         Commit initialCommit = new Commit();
+        byte[] commit = serialize(initialCommit);
+        String commitID = sha1(commit);
         File initialFile = join(GITLET_DIR, "initialCommit");
         writeObject(initialFile, initialCommit);
+        writeContents(head, commitID);
     }
 
     /** Add the current file into staging area */
@@ -95,9 +98,9 @@ public class Repository {
 
         // Save new commit into .gitlet/object
         byte[] commit = serialize(normalCommit);
-        String commitHash = sha1(commit);
-        String commitName = commitHash.substring(0,2);
-        File objectFile = join(objects, commitName);
-        writeContents(objectFile, commitHash);
+        String commitID = sha1(commit);
+        File objectFile = join(objects, commitID);
+        writeObject(objectFile, commit);
+        writeContents(head, commitID);
     }
 }
