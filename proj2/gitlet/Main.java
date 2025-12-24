@@ -14,11 +14,18 @@ public class Main {
         switch(firstArg) {
             case "init":
                 // TODO: handle the `init` command
+                Repository.initialCommand();
                 break;
             case "add":
                 // TODO: handle the `add [filename]` command
+                String filename = args[1];
+                Repository.addCommand(filename);
                 break;
             // TODO: FILL THE REST IN
+            case "commit":
+                // TODO: handle the `commit [message]` command
+                String message = args[1];
+
         }
     }
 }
