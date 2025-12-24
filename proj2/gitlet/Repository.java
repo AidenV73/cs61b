@@ -40,6 +40,9 @@ public class Repository {
      */
     public static final File index = join(GITLET_DIR, "index");
 
+    /** The directory to save head */
+    public static String head;
+
     /** The directory to save blob */
     public static final File objects = join(GITLET_DIR, "objects");
 
@@ -52,37 +55,49 @@ public class Repository {
      */
     public static void initialCommand() {
         GITLET_DIR.mkdir();
-        File initialCommitFile = join(GITLET_DIR, "initialCommit");
-        Commit initialCommit = new Commit("initial commit");
-        writeObject(initialCommitFile, initialCommit);
+        Commit initialCommit = new Commit();
+        File initialFile = join(GITLET_DIR, "initialCommit");
+        writeObject(initialFile, initialCommit);
     }
 
-    /**
-     * Add file -> hashContent into .gitlet/index
-     */
+    /** Add the current file into staging area */
     public static void addCommand(String filename) {
-        // Initialize a hashmap
-        HashMap<String, String> fileHash = new HashMap<>();
+        // Make a HashMap to save filename -> hashText
+        HashMap<String, String> stageFile = new HashMap<>();
 
-        // Get the hashed content
-        String fileContent = null;
+        // Hash fileText
+        String fileText = null;
         try {
-            fileContent = Files.readString(Path.of(filename));
+            fileText = Files.readString(Path.of(filename));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        String hashedContent = sha1(fileContent);
+        String hashText = sha1(fileText);
 
-        // Add in filename -> hashContent and if not exist create a blob
+        // Add into HashMap
+        stageFile.put(filename, hashText);
+
+        // Write HashMap into .gitlet/index
+        writeObject(index, stageFile);
+    }
+
+    /** Commit changes in staging area */
+    public static void commitCommand(String message) {
         objects.mkdir();
-        if (!fileHash.containsKey(filename)) {
-            String blobName = hashedContent.substring(0,2);
-            File blobFile = join(objects, blobName);
-            writeContents(blobFile, hashedContent);
-        }
-        fileHash.put(filename, hashedContent);
 
-        // Put hashmap into directory
-        writeObject(index, fileHash);
+        // Read index to get added file
+        @SuppressWarnings("unchecked")
+        HashMap<String, String> addedFile = readObject(index, HashMap.class);
+
+        // Make a new commit
+        String parentID = readContentsAsString(head);
+        Commit normalCommit = new Commit(message, parentID, addedFile);
+
+        // Save new commit into .gitlet/object
+        byte[] commit = serialize(normalCommit);
+        String commitHash = sha1(commit);
+        String commitName = commitHash.substring(0,2);
+        File objectFile = join(objects, commitName);
+        writeContents(objectFile, commitHash);
     }
 }

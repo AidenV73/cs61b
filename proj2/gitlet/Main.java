@@ -22,12 +22,13 @@ public class Main {
             case "add":
                 // TODO: handle the `add [filename]` command
                 String filename = args[1];
+                Repository.addCommand(filename);
                 break;
             // TODO: FILL THE REST IN
             case "commit":
                 // TODO: handle the `commit [message]` command
                 String message = args[1];
-
+                Repository.addCommand(message);
         }
     }
 }

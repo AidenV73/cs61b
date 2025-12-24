@@ -34,52 +34,31 @@ public class Commit implements Serializable {
     /** Timestamp of this Commit */
     private Date timestamp;
 
-    /** Record Commit's Parents and Children by Doubly Linked List */
-    private LinkedListDeque<Commit> commitList = new LinkedListDeque<>();
-    private Commit parent = null;
-    private Commit children = null;
-
-    /** Set a head pointer */
-    private Commit head;
-
-    /** Set a master pointer */
-    private Commit master;
-
-    /** The .gitlet/objects to save blob */
-    File objects = join(Repository.objects);
+    /** Parents of current Commit */
+    private String parentID;
 
     /** Tracked file */
-    HashMap<String, String> blobs;
+    HashMap<String, String> blobs = new HashMap<>();
 
     /* TODO: fill in the rest of this class. */
     /** Make the initial commit */
-    public Commit(String message) {
+    public Commit() {
+        this.message = "initial commit";
+        this.timestamp = new Date(0);
+        this.parentID = null;
+    }
 
-        // If dont have parents then do initial commit
-        if (this.parent == null) {
-            // Set the initial information
-            this.timestamp = new Date(0);
-        } else {
-            this.timestamp = new Date();
-            // Get parent before update the list
-            this.parent = commitList.getLast();
-        }
-
-        // Record the message (No need to worry about initial cuz alr set in repo)
+    /** Make the normal commit */
+    public Commit(String message, String parentID, HashMap<String, String> stagingArea) {
         this.message = message;
+        this.timestamp = new Date();
+        this.parentID = parentID;
+        this.blobs = updateTrackedFile(stagingArea);
+    }
 
-        // Add this commit into commitList
-        commitList.addLast(this);
-
-        // TODO: Update commit's blob
-
-        // Read staging area (a.k.a index) to spot blob
-        @SuppressWarnings("unchecked")
-        HashMap<String, String> stageFile = readObject(Repository.index, HashMap.class);
-
-        // Overwritten the blob
-        for (String key: stageFile.keySet()) {
-            blobs.put(key, stageFile.get(key));
-        }
+    /** Update Tracked File */
+    public HashMap<String, String> updateTrackedFile(HashMap<String, String> stagingArea) {
+        stagingArea.forEach((key, value) -> blobs.put((String) key, (String) value));
+        return blobs;
     }
 }
