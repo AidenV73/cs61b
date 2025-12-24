@@ -49,7 +49,7 @@ public class Commit implements Serializable {
     File objects = join(Repository.objects);
 
     /** Tracked file */
-
+    HashMap<String, String> blobs;
 
     /* TODO: fill in the rest of this class. */
     /** Make the initial commit */
@@ -72,7 +72,13 @@ public class Commit implements Serializable {
         commitList.addLast(this);
 
         // TODO: Update commit's blob
-        // Add pointer to point on blob
-    }
 
+        // Read staging area (a.k.a index) to spot blob
+        @SuppressWarnings("unchecked")
+        HashMap<String, String> stageFile = readObject(Repository.index, HashMap.class);
+        // Overwritten the blob
+        for (String key: stageFile.keySet()) {
+            blobs.put(key, stageFile.get(key));
+        }
+    }
 }
