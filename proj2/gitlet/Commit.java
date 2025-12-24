@@ -76,6 +76,7 @@ public class Commit implements Serializable {
         // Read staging area (a.k.a index) to spot blob
         @SuppressWarnings("unchecked")
         HashMap<String, String> stageFile = readObject(Repository.index, HashMap.class);
+
         // Overwritten the blob
         for (String key: stageFile.keySet()) {
             blobs.put(key, stageFile.get(key));

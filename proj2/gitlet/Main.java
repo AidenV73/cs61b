@@ -11,6 +11,9 @@ public class Main {
     public static void main(String[] args) {
         // TODO: what if args is empty?
         String firstArg = args[0];
+        if (firstArg == null) {
+            System.out.println("Please enter a command");
+        }
         switch(firstArg) {
             case "init":
                 // TODO: handle the `init` command
@@ -19,7 +22,6 @@ public class Main {
             case "add":
                 // TODO: handle the `add [filename]` command
                 String filename = args[1];
-                Repository.addCommand(filename);
                 break;
             // TODO: FILL THE REST IN
             case "commit":

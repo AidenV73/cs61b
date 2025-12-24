@@ -52,7 +52,7 @@ public class Repository {
      */
     public static void initialCommand() {
         GITLET_DIR.mkdir();
-        File initialCommitFile = join(GITLET_DIR, "initial commit");
+        File initialCommitFile = join(GITLET_DIR, "initialCommit");
         Commit initialCommit = new Commit("initial commit");
         writeObject(initialCommitFile, initialCommit);
     }
