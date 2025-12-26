@@ -2,9 +2,10 @@ package gitlet;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.HashMap;
+import java.nio.file.Paths;
+import java.util.*;
 
 import static gitlet.Utils.*;
 
@@ -38,7 +39,10 @@ public class Repository {
     /**
      * The staging area
      */
-    public static final File index = join(GITLET_DIR, "index");
+    // Addition
+    public static  File index = join(GITLET_DIR, "index");
+    // Removal
+    public static File removal = join(GITLET_DIR, "removal");
 
     /** The HEAD to points on current working commit */
     public static File head = join(GITLET_DIR, "head");
@@ -54,53 +58,144 @@ public class Repository {
      * If alr have a repository: throw an error message
      */
     public static void initialCommand() {
+        if (GITLET_DIR.exists()) {
+            System.out.println("A Gitlet version-control system already exists in the current directory.");
+            return;
+        }
+
         GITLET_DIR.mkdir();
+
+        // Make objects directory
+        objects.mkdir();
+
+        // Initialize removal file
+        writeObject(removal, new HashSet<String>());
+
+        // Initialize index file
+        writeObject(index, new HashMap<String, String>());
+
+        // Make the initial commit
         Commit initialCommit = new Commit();
-        byte[] commit = serialize(initialCommit);
-        String commitID = sha1(commit);
-        File initialFile = join(GITLET_DIR, "initialCommit");
-        writeObject(initialFile, initialCommit);
-        writeContents(head, commitID);
+
+        // Write initial commit into objects file
+        File commitFile = join(objects, initialCommit.getID());
+        writeObject(commitFile, initialCommit);
+
+        // Move the head pointer
+        writeContents(head, initialCommit.getID());
     }
 
     /** Add the current file into staging area */
     public static void addCommand(String filename) {
         // Make a HashMap to save filename -> hashText
-        HashMap<String, String> stageFile = new HashMap<>();
+        @SuppressWarnings("unchecked")
+        HashMap<String, String> stageFile = readObject(index, HashMap.class);
 
         // Hash fileText
         String fileText = null;
         try {
-            fileText = Files.readString(Path.of(filename));
+            fileText = Files.readString(Paths.get(filename));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            System.out.println("File not found: " + filename);
+            return;
         }
-        String hashText = sha1(fileText);
+
+        String blobID = sha1(fileText);
+
+        // Write blob and its content into .gitlet/objects/<blobID>
+        File blobFile = join(objects, blobID);
+        if (!blobFile.exists()) {
+            writeContents(blobFile, fileText);
+        }
 
         // Add into HashMap
-        stageFile.put(filename, hashText);
+        stageFile.put(filename, blobID);
 
         // Write HashMap into .gitlet/index
         writeObject(index, stageFile);
     }
 
-    /** Commit changes in staging area */
+    /** Commit changes in staging area and removal area*/
     public static void commitCommand(String message) {
         objects.mkdir();
 
-        // Read index to get added file
+        // If no commit message
+        if (message == null) {
+            System.out.println("Please enter a commit message");
+            return;
+        }
+
+        // Read index to get staged file and removal to get removal file
         @SuppressWarnings("unchecked")
-        HashMap<String, String> addedFile = readObject(index, HashMap.class);
+        HashMap<String, String> stagedFile = readObject(index, HashMap.class);
+        @SuppressWarnings("unchecked")
+        HashSet<String> removalFile = readObject(removal, HashSet.class);
+
+        // If staged file is null ( No add ) and removal file is null (No rm)
+        if (stagedFile.isEmpty() && removalFile.isEmpty()) {
+            System.out.println("No changes added to modified");
+            return;
+        }
 
         // Make a new commit
         String parentID = readContentsAsString(head);
-        Commit normalCommit = new Commit(message, parentID, addedFile);
+        Commit normalCommit = new Commit(message, parentID, stagedFile, removalFile);
 
         // Save new commit into .gitlet/object
-        byte[] commit = serialize(normalCommit);
-        String commitID = sha1(commit);
-        File objectFile = join(objects, commitID);
-        writeObject(objectFile, commit);
-        writeContents(head, commitID);
+        File objectFile = join(objects, normalCommit.getID());
+        writeObject(objectFile, normalCommit);
+
+        // Head points to current commit
+        writeContents(head, normalCommit.getID());
+
+        // Clear the staged file and removal file after commit
+        stagedFile.clear();
+        removalFile.clear();
+
+        // Write back into index and removal
+        writeObject(index, stagedFile);
+        writeObject(removal, removalFile);
+    }
+
+    /** Remove file */
+    public static void rmCommand(String filename) {
+        @SuppressWarnings("unchecked")
+        Set<String> removalFile = readObject(removal, HashSet.class);
+        // If file is staged then remove from staging area
+        @SuppressWarnings("unchecked")
+        HashMap<String, String> stagedFile = readObject(index, HashMap.class);
+        if (stagedFile.containsKey(filename)) {
+            stagedFile.remove(filename);
+        } else {
+            // If tracked by current commit then add into removal area
+            removalFile.add(filename);
+
+            // Serialize removalFile and write into removal
+            byte[] removalByte = serialize((Serializable) removalFile);
+            writeObject(removal, removalByte);
+        }
+    }
+
+    /** Show all the commit history */
+    public static void logCommand() {
+        // Get the current commit's id
+        String currentID = readContentsAsString(head);
+        while (currentID != "") {
+            Commit currentCommit = getCommit(currentID);
+            System.out.println("===");
+            System.out.println("commit " + currentCommit.getID());
+            System.out.println("Date: " + currentCommit.getDate());
+            System.out.println(currentCommit.getMessage());
+            System.out.println("");
+            currentID = currentCommit.getParentID();
+        }
+    }
+
+    /** Helper method */
+    /** Return commit by id */
+    public static Commit getCommit(String id) {
+        File commitFile = join(objects, id);
+        Commit currentCommit = readObject(commitFile, Commit.class);
+        return currentCommit;
     }
 }

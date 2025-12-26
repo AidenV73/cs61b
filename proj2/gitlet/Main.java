@@ -28,7 +28,17 @@ public class Main {
             case "commit":
                 // TODO: handle the `commit [message]` command
                 String message = args[1];
-                Repository.addCommand(message);
+                Repository.commitCommand(message);
+                break;
+            case "rm":
+                // TODO: handle the `rm [filename]` command
+                filename = args[1];
+                Repository.rmCommand(filename);
+                break;
+            case "log":
+                // TODO: handle the `log` command
+                Repository.logCommand();
+                break;
         }
     }
 }
