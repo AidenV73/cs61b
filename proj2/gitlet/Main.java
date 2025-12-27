@@ -46,13 +46,14 @@ public class Main {
                 break;
             case "checkout":
                 // TODO: handle the `checkout` command
-                if (args.length > 2) {
-                    String commitID = args[1];
+                // checkout -- [file]
+                if (args[1].equals("--")) {
                     filename = args[2];
+                    Repository.checkoutCommand(filename);
+                } else if (args.length == 4 && args[2].equals("--")){   // checkout [commitID] -- [file]
+                    String commitID = args[1];
+                    filename = args[3];
                     Repository.checkoutCommand(commitID, filename);
-                } else {
-                    String val = args[1];
-                    Repository.checkoutCommand(val);
                 }
         }
     }

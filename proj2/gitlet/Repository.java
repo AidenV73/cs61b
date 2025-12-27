@@ -1,10 +1,7 @@
 package gitlet;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.Serializable;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
 
 import static gitlet.Utils.*;
@@ -193,7 +190,7 @@ public class Repository {
         Boolean commitExist = false;
         while (currentID != "") {
             Commit currentCommit = getCommit(currentID);
-            if (currentCommit.getMessage() == message) {
+            if (currentCommit.getMessage().equals(message)) {
                 System.out.println(currentID);
                 commitExist = true;
             }

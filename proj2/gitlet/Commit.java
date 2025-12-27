@@ -33,6 +33,9 @@ public class Commit implements Serializable {
     /** Timestamp of this Commit */
     private Date timestamp;
 
+    /** Date(formatted timestamp) */
+    private String date;
+
     /** Parents of current Commit */
     private String parentID;
 
@@ -44,6 +47,7 @@ public class Commit implements Serializable {
     public Commit() {
         this.message = "initial commit";
         this.timestamp = new Date(0);
+        this.date = formateTimeStamp(timestamp);
         this.parentID = "";
         this.id = sha1(Utils.serialize(this));
     }
@@ -52,6 +56,7 @@ public class Commit implements Serializable {
     public Commit(String message, String parentID, HashMap<String, String> stagedFile) {
         this.message = message;
         this.timestamp = new Date();
+        this.date = formateTimeStamp(timestamp);
         this.parentID = parentID;
         this.blobs = updateTrackedFile(stagedFile);
         this.id = sha1(Utils.serialize(this));
@@ -61,6 +66,7 @@ public class Commit implements Serializable {
     public Commit(String message, String parentID, HashMap<String, String> stagedFile, HashSet<String> removalFile) {
         this.message = message;
         this.timestamp = new Date();
+        this.date = formateTimeStamp(timestamp);
         this.parentID = parentID;
         this.blobs = updateTrackedFileWithRemoval(stagedFile, removalFile);
         this.id = sha1(Utils.serialize(this));
@@ -98,9 +104,14 @@ public class Commit implements Serializable {
         return this.message;
     }
 
-    /** Return date of commit */
-    public Date getDate() {
+    /** Return timestamp to commit */
+    public Date getTimestamp() {
         return this.timestamp;
+    }
+
+    /** Return date in string */
+    public String getDate() {
+        return this.date;
     }
 
     /** Return parentID of commit */
@@ -121,6 +132,14 @@ public class Commit implements Serializable {
     /** Return commit's id */
     public String getID() {
         return this.id;
+    }
+
+    /** Helper method */
+    /** Format timestamp */
+    public String formateTimeStamp(Date timestamp) {
+        Formatter fmt = new Formatter();
+        fmt.format("%1$ta %1$tb %1$td %1$tT %1$tY %1$tz", timestamp);
+        return fmt.toString();
     }
 
 }
