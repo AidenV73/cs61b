@@ -92,24 +92,19 @@ public class Repository {
         HashMap<String, String> stageFile = readObject(index, HashMap.class);
 
         // Hash fileText
-        String fileText = null;
-        try {
-            fileText = Files.readString(Paths.get(filename));
-        } catch (IOException e) {
-            System.out.println("File not found: " + filename);
-            return;
-        }
+        File currentFile = join(CWD, filename);
+        String fileText = readContentsAsString(currentFile);
 
-        String blobID = sha1(fileText);
+        String hashText = sha1(fileText);  // Also use as blobID
 
-        // Write blob and its content into .gitlet/objects/<blobID>
-        File blobFile = join(objects, blobID);
+        // Write blob and its content（not hashed) into .gitlet/objects/<blobID>
+        File blobFile = join(objects, hashText);
         if (!blobFile.exists()) {
             writeContents(blobFile, fileText);
         }
 
         // Add into HashMap
-        stageFile.put(filename, blobID);
+        stageFile.put(filename, hashText);
 
         // Write HashMap into .gitlet/index
         writeObject(index, stageFile);
@@ -188,6 +183,57 @@ public class Repository {
             System.out.println(currentCommit.getMessage());
             System.out.println("");
             currentID = currentCommit.getParentID();
+        }
+    }
+
+    /** Find the commit with commit message */
+    public static void findCommand(String message) {
+        // Iterate through all file in objects
+        String currentID = readContentsAsString(head);
+        Boolean commitExist = false;
+        while (currentID != "") {
+            Commit currentCommit = getCommit(currentID);
+            if (currentCommit.getMessage() == message) {
+                System.out.println(currentID);
+                commitExist = true;
+            }
+            currentID = currentCommit.getParentID();
+        }
+        if (!commitExist) {
+            System.out.println("Found no commit with that message.");
+        }
+    }
+
+    /** Get file in commit or branches */
+    public static void checkoutCommand(String val) {
+        // If checkout current commit and filename
+        String commitID = readContentsAsString(head);
+        checkoutCommand(commitID, val);
+        // TODO: If checkout branches then takes all files in the commit at the head of the given branch
+    }
+
+    public static void checkoutCommand(String commitID, String filename) {
+        // Get current commit
+        Commit currentCommit = getCommit(commitID);
+
+        // Get blobs
+        HashMap<String, String> currentBlob = currentCommit.getBlobs();
+
+        // Find filename -> content key value pair in blobs
+        if (currentBlob.containsKey(filename)) {
+            // Get filename -> blobID
+            String blobID = currentBlob.get(filename);
+
+            // Get blobID -> content
+            File f = join(objects, blobID);
+            String content = readContentsAsString(f);
+
+            // Write content into CWD/filename
+            File current = join(CWD, filename);
+            writeContents(current, content);
+
+        } else {
+            System.out.println("File does not exist in that commit.");
         }
     }
 

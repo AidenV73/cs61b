@@ -39,6 +39,21 @@ public class Main {
                 // TODO: handle the `log` command
                 Repository.logCommand();
                 break;
+            case "find":
+                // TODO: handle the `find` command
+                message = args[1];
+                Repository.findCommand(message);
+                break;
+            case "checkout":
+                // TODO: handle the `checkout` command
+                if (args.length > 2) {
+                    String commitID = args[1];
+                    filename = args[2];
+                    Repository.checkoutCommand(commitID, filename);
+                } else {
+                    String val = args[1];
+                    Repository.checkoutCommand(val);
+                }
         }
     }
 }
