@@ -1,6 +1,7 @@
 package capers;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.Serializable;
 
 import static capers.Utils.*;
@@ -33,16 +34,25 @@ public class CapersRepository {
      */
     public static void setupPersistence() {
         // TODO
-        // Make .capper if it is not exist
-        File c = CAPERS_FOLDER;
-        if (!c.exists()) {
-            c.mkdir();
+        // Make .capper if not exist
+        File capper = CAPERS_FOLDER;
+        if (!capper.exists()) {
+            capper.mkdir();
         }
 
-        // Make dogs if .capers/dogs is not exist
-        File dogsdir = Utils.join(c, "dogs");
-        if (!dogsdir.exists()) {
-            dogsdir.mkdir();
+        // Make story file if not exist
+        File story = join(CAPERS_FOLDER, "story");
+        if (!story.exists()) {
+            try {
+                story.createNewFile();
+            } catch (IOException ignore) {
+            }
+        }
+
+        // Make dogs dir if not exist
+        File dogs = join(CAPERS_FOLDER, "dogs");
+        if (!dogs.exists()) {
+            dogs.mkdir();
         }
     }
 
@@ -53,12 +63,15 @@ public class CapersRepository {
      */
     public static void writeStory(String text) {
         // TODO
-        File story = Utils.join(CAPERS_FOLDER, "story");
-        if (!story.exists()) {
-            Utils.writeContents(story, text);
-        } else {
-            Utils.writeContents(story, Utils.readContents(story) + text + "/n");
-        }
+        File f = join(CAPERS_FOLDER, "story");
+
+        String existedContent = readContentsAsString(f);
+
+        String updatedContent = existedContent + text + "\n";
+
+        writeContents(f, updatedContent);
+
+        System.out.println(updatedContent);
     }
 
     /**
@@ -68,9 +81,16 @@ public class CapersRepository {
      */
     public static void makeDog(String name, String breed, int age) {
         // TODO
+        File f = join(Dog.DOG_FOLDER, name);
+        if (!f.exists()) {
+            try {
+                f.createNewFile();
+            } catch (IOException ignore) {
+            }
+        }
         Dog d = new Dog(name, breed, age);
-        File dogFile = Utils.join(CAPERS_FOLDER, "dogs", name);
-        Utils.writeObject(dogFile, (Serializable) d);
+        d.saveDog();
+        System.out.println(d);
     }
 
     /**
@@ -81,7 +101,9 @@ public class CapersRepository {
      */
     public static void celebrateBirthday(String name) {
         // TODO
-        File dogFile = Utils.join(CAPERS_FOLDER, "dogs", name);
-        Dog d = Utils.readObject(dogFile, Dog.class);
+        File f = join(Dog.DOG_FOLDER, name);
+        Dog d = readObject(f, Dog.class);
+        d.haveBirthday();
+        d.saveDog();
     }
 }
