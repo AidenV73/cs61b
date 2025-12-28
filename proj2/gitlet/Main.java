@@ -50,11 +50,14 @@ public class Main {
                 // checkout -- [file]
                 if (args[1].equals("--")) {
                     filename = args[2];
-                    Repository.checkoutCommand(filename);
+                    Repository.checkoutFileCommand(filename);
                 } else if (args.length == 4 && args[2].equals("--")){   // checkout [commitID] -- [file]
                     String commitID = args[1];
                     filename = args[3];
-                    Repository.checkoutCommand(commitID, filename);
+                    Repository.checkoutFileInCommitCommand(commitID, filename);
+                } else {
+                    String branchname = args[1];
+                    Repository.checkoutBranchCommand(branchname);
                 }
                 break;
             case "branch":

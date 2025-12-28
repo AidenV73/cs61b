@@ -215,15 +215,15 @@ public class Repository {
         }
     }
 
-    /** Get file in commit or branches */
-    public static void checkoutCommand(String val) {
+    /** Checkout file in current commit */
+    public static void checkoutFileCommand(String filename) {
         // If checkout current commit and filename
         String commitID = readContentsAsString(getBranch());
-        checkoutCommand(commitID, val);
-        // TODO: If checkout branches then takes all files in the commit at the head of the given branch
+        checkoutFileInCommitCommand(commitID, filename);
     }
 
-    public static void checkoutCommand(String commitID, String filename) {
+    /** Checkout file in specific commit */
+    public static void checkoutFileInCommitCommand(String commitID, String filename) {
         // Get current commit
         Commit currentCommit = getCommit(commitID);
 
@@ -248,9 +248,70 @@ public class Repository {
         }
     }
 
+    /** Checkout branch */
+    public static void checkoutBranchCommand(String branchname) {
+        // If branch does not exist
+        File[] branchList = branches.listFiles();
+        Boolean exist = false;
+        for (File f : branchList) {
+            String name = f.getName();
+            if (name.equals(branchname)) {
+                exist = true;
+            }
+        }
+        if (!exist) {
+            System.out.println("No such branch exist");
+            return;
+        }
+
+        // If current branch is branchname
+        if (readContentsAsString(head).equals(branchname)) {
+            System.out.println("No need to checkout current branch. ");
+        }
+
+        // Check if current branch file is tracked(inside currentBlob, index), if not just return
+        File[] files = CWD.listFiles();
+        for (File f : files) {
+            String filename = f.getName();
+            Commit currentCommit = getCommit(readContentsAsString(getBranch()));
+            HashMap<String, String> currentBlobs = currentCommit.getBlobs();
+            HashMap<String, String> stagedFile = readObject(index, HashMap.class);
+            if (!currentBlobs.containsKey(filename) && !stagedFile.containsKey(filename)) {
+                System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
+                return;
+            }
+        }
+        // Move head pointer to points on this branch
+        writeContents(head, branchname);
+        // Get branch
+        File branch = join(branches, branchname);
+
+        // Get branch current commit ID
+        String currentID = readContentsAsString(branch);
+
+        // Read blob inside commit
+        Commit currentCommit = getCommit(currentID);
+        @SuppressWarnings("unchecked")
+        HashMap<String, String> blobs = currentCommit.getBlobs();
+
+        // Override current working directory
+        for (String filename : blobs.keySet()) {
+            String hashID = blobs.get(filename);
+            File f = join(CWD, filename);
+            writeContents(f, getContent(hashID));
+        }
+
+    }
+
     /** Creates a new branch with the given name, and points it at the current head commit. */
+    public static void branchCommand(String branchname) {
+        File newBranch = join(branches, branchname);
+        Commit currentCommit = getCurrentCommit();
+        writeContents(newBranch, currentCommit.getID());
+    }
 
     /** Helper method */
+
     /** Return commit by id */
     public static Commit getCommit(String id) {
         File commitFile = join(objects, id);
@@ -261,5 +322,17 @@ public class Repository {
     /** Return current working branch */
     public static File getBranch() {
         return join(branches, readContentsAsString(head));
+    }
+
+    /** Get current commit */
+    public static Commit getCurrentCommit() {
+        String currentID = readContentsAsString(getBranch());
+        return getCommit(currentID);
+    }
+
+    /** Get content by hashID */
+    public static String getContent(String hashID) {
+        File f = join(objects, hashID);
+        return readContentsAsString(f);
     }
 }
