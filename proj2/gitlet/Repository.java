@@ -259,6 +259,7 @@ public class Repository {
                 exist = true;
             }
         }
+
         if (!exist) {
             System.out.println("No such branch exist");
             return;
@@ -269,34 +270,38 @@ public class Repository {
             System.out.println("No need to checkout current branch. ");
         }
 
-        // Check if current branch file is tracked(inside currentBlob, index), if not just return
+        // Check if file in CWD will be overwritten or file is untracked, return if true
+        // Current branch
+        Commit currentCommit = getCurrentCommit();
+        HashMap<String, String> currentBlob = currentCommit.getBlobs();
+        @SuppressWarnings("unchecked")
+        HashMap<String, String> stagedFile = readObject(index, HashMap.class);
+
+        // New branch
+        File newBranch = join(branches, branchname);
+        Commit newCommit = getCommit(readContentsAsString(newBranch));
+        HashMap<String, String> newBlobs= newCommit.getBlobs();
+
+        // Iterate
         File[] files = CWD.listFiles();
         for (File f : files) {
             String filename = f.getName();
-            Commit currentCommit = getCommit(readContentsAsString(getBranch()));
-            HashMap<String, String> currentBlobs = currentCommit.getBlobs();
-            HashMap<String, String> stagedFile = readObject(index, HashMap.class);
-            if (!currentBlobs.containsKey(filename) && !stagedFile.containsKey(filename)) {
+            boolean untracked = (!currentBlob.containsKey(filename) && !stagedFile.containsKey(filename));
+            boolean willOverwritten = newBlobs.containsKey(filename);
+
+            // If it is tracked then no need to worry
+            if (untracked && willOverwritten) {
                 System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
                 return;
             }
         }
+
         // Move head pointer to points on this branch
         writeContents(head, branchname);
-        // Get branch
-        File branch = join(branches, branchname);
-
-        // Get branch current commit ID
-        String currentID = readContentsAsString(branch);
-
-        // Read blob inside commit
-        Commit currentCommit = getCommit(currentID);
-        @SuppressWarnings("unchecked")
-        HashMap<String, String> blobs = currentCommit.getBlobs();
 
         // Override current working directory
-        for (String filename : blobs.keySet()) {
-            String hashID = blobs.get(filename);
+        for (String filename : newBlobs.keySet()) {
+            String hashID = newBlobs.get(filename);
             File f = join(CWD, filename);
             writeContents(f, getContent(hashID));
         }
