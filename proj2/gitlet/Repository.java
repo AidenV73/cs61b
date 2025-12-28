@@ -270,11 +270,10 @@ public class Repository {
     /** Checkout branch */
     public static void checkoutBranchCommand(String branchname) {
         // If branch does not exist
-        File[] branchList = branches.listFiles();
+        List<String> branchList = plainFilenamesIn(branches);
         Boolean exist = false;
-        for (File f : branchList) {
-            String name = f.getName();
-            if (name.equals(branchname)) {
+        for (String filename : branchList) {
+            if (filename.equals(branchname)) {
                 exist = true;
             }
         }
@@ -302,9 +301,8 @@ public class Repository {
         HashMap<String, String> newBlobs= newCommit.getBlobs();
 
         // Iterate
-        File[] files = CWD.listFiles();
-        for (File f : files) {
-            String filename = f.getName();
+        List<String> filenames = plainFilenamesIn(CWD);
+        for (String filename : filenames) {
             boolean untracked = (!currentBlob.containsKey(filename) && !stagedFile.containsKey(filename));
             boolean willOverwritten = newBlobs.containsKey(filename);
 
