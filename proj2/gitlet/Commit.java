@@ -52,15 +52,6 @@ public class Commit implements Serializable {
         this.id = sha1(Utils.serialize(this));
     }
 
-    /** Make the only add commit */
-    public Commit(String message, String parentID, HashMap<String, String> stagedFile) {
-        this.message = message;
-        this.timestamp = new Date();
-        this.date = formateTimeStamp(timestamp);
-        this.parentID = parentID;
-        this.blobs = updateTrackedFile(stagedFile);
-        this.id = sha1(Utils.serialize(this));
-    }
 
     /** Make the commit with add and removal */
     public Commit(String message, String parentID, HashMap<String, String> stagedFile, HashSet<String> removalFile) {
@@ -68,7 +59,7 @@ public class Commit implements Serializable {
         this.timestamp = new Date();
         this.date = formateTimeStamp(timestamp);
         this.parentID = parentID;
-        this.blobs = updateTrackedFileWithRemoval(stagedFile, removalFile);
+        this.blobs = updateTrackedFile(stagedFile, removalFile);
         this.id = sha1(Utils.serialize(this));
     }
 
@@ -79,14 +70,8 @@ public class Commit implements Serializable {
         return parentCommit.getBlobs();
     }
 
-    /** Update Tracked File With Removal */
-    public HashMap<String, String> updateTrackedFile(HashMap<String, String> stagingArea) {
-        blobs = new HashMap<>(getParentBlobs());
-        stagingArea.forEach((key, value) -> blobs.put((String) key, (String) value));
-        return blobs;
-    }
     /** Update Tracked File */
-    public HashMap<String, String> updateTrackedFileWithRemoval(HashMap<String, String> stagingArea, HashSet<String> removalFile) {
+    public HashMap<String, String> updateTrackedFile(HashMap<String, String> stagingArea, HashSet<String> removalFile) {
         blobs = new HashMap<>(getParentBlobs());
         stagingArea.forEach((key, value) -> blobs.put((String) key, (String) value));
         for (String filename : removalFile) {

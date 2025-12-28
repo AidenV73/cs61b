@@ -10,10 +10,11 @@ public class Main {
      */
     public static void main(String[] args) {
         // TODO: what if args is empty?
-        String firstArg = args[0];
-        if (firstArg == null) {
-            System.out.println("Please enter a command");
+        if (args.length == 0) {
+            System.out.println("Please enter a command.");
+            return;
         }
+        String firstArg = args[0];
         switch(firstArg) {
             case "init":
                 // TODO: handle the `init` command
@@ -55,6 +56,12 @@ public class Main {
                     filename = args[3];
                     Repository.checkoutCommand(commitID, filename);
                 }
+                break;
+            case "branch":
+                // TODO: handle the `branch [branchname]` command
+                String branchname = args[1];
+                Repository.branchCommand(branchname);
+                break;
         }
     }
 }

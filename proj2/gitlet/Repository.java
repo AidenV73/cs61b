@@ -41,8 +41,11 @@ public class Repository {
     // Removal
     public static File removal = join(GITLET_DIR, "removal");
 
-    /** The HEAD to points on current working commit */
+    /** The HEAD to points on current working branch */
     public static File head = join(GITLET_DIR, "head");
+
+    /** The Branches directory to save all the branches */
+    public static final File branches = join(GITLET_DIR, "branches");
 
     /** The directory to save blob */
     public static final File objects = join(GITLET_DIR, "objects");
@@ -65,6 +68,13 @@ public class Repository {
         // Make objects directory
         objects.mkdir();
 
+        // Make branches directory and initialize master branch
+        branches.mkdir();
+        File master = join(branches, "master");
+
+        // Head points to master
+        writeContents(head, "master");
+
         // Initialize removal file
         writeObject(removal, new HashSet<String>());
 
@@ -78,8 +88,9 @@ public class Repository {
         File commitFile = join(objects, initialCommit.getID());
         writeObject(commitFile, initialCommit);
 
-        // Move the head pointer
-        writeContents(head, initialCommit.getID());
+        // Save initial commit inside master branch
+        writeContents(master, initialCommit.getID());
+
     }
 
     /** Add the current file into staging area */
@@ -129,16 +140,19 @@ public class Repository {
             return;
         }
 
+        // Get current working branch
+        File branch = join(branches, readContentsAsString(head));
+
         // Make a new commit
-        String parentID = readContentsAsString(head);
+        String parentID = readContentsAsString(branch);
         Commit normalCommit = new Commit(message, parentID, stagedFile, removalFile);
 
         // Save new commit into .gitlet/object
         File objectFile = join(objects, normalCommit.getID());
         writeObject(objectFile, normalCommit);
 
-        // Head points to current commit
-        writeContents(head, normalCommit.getID());
+        // Update branch to points on current added commit
+        writeContents(branch, normalCommit.getID());
 
         // Clear the staged file and removal file after commit
         stagedFile.clear();
@@ -152,7 +166,7 @@ public class Repository {
     /** Remove file */
     public static void rmCommand(String filename) {
         @SuppressWarnings("unchecked")
-        Set<String> removalFile = readObject(removal, HashSet.class);
+        Set<String> removalSet = readObject(removal, HashSet.class);
         // If file is staged then remove from staging area
         @SuppressWarnings("unchecked")
         HashMap<String, String> stagedFile = readObject(index, HashMap.class);
@@ -160,10 +174,10 @@ public class Repository {
             stagedFile.remove(filename);
         } else {
             // If tracked by current commit then add into removal area
-            removalFile.add(filename);
+            removalSet.add(filename);
 
             // Serialize removalFile and write into removal
-            byte[] removalByte = serialize((Serializable) removalFile);
+            byte[] removalByte = serialize((Serializable) removalSet);
             writeObject(removal, removalByte);
         }
     }
@@ -171,7 +185,7 @@ public class Repository {
     /** Show all the commit history */
     public static void logCommand() {
         // Get the current commit's id
-        String currentID = readContentsAsString(head);
+        String currentID = readContentsAsString(getBranch());
         while (currentID != "") {
             Commit currentCommit = getCommit(currentID);
             System.out.println("===");
@@ -186,7 +200,7 @@ public class Repository {
     /** Find the commit with commit message */
     public static void findCommand(String message) {
         // Iterate through all file in objects
-        String currentID = readContentsAsString(head);
+        String currentID = readContentsAsString(getBranch());
         Boolean commitExist = false;
         while (currentID != "") {
             Commit currentCommit = getCommit(currentID);
@@ -204,7 +218,7 @@ public class Repository {
     /** Get file in commit or branches */
     public static void checkoutCommand(String val) {
         // If checkout current commit and filename
-        String commitID = readContentsAsString(head);
+        String commitID = readContentsAsString(getBranch());
         checkoutCommand(commitID, val);
         // TODO: If checkout branches then takes all files in the commit at the head of the given branch
     }
@@ -234,11 +248,18 @@ public class Repository {
         }
     }
 
+    /** Creates a new branch with the given name, and points it at the current head commit. */
+
     /** Helper method */
     /** Return commit by id */
     public static Commit getCommit(String id) {
         File commitFile = join(objects, id);
         Commit currentCommit = readObject(commitFile, Commit.class);
         return currentCommit;
+    }
+
+    /** Return current working branch */
+    public static File getBranch() {
+        return join(branches, readContentsAsString(head));
     }
 }
