@@ -40,6 +40,10 @@ public class Main {
                 // TODO: handle the `log` command
                 Repository.logCommand();
                 break;
+            case "global-log":
+                // TODO: handle the `global-log` command
+                Repository.globalLogCommand();
+                break;
             case "find":
                 // TODO: handle the `find` command
                 message = args[1];

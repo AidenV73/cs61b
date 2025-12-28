@@ -182,7 +182,7 @@ public class Repository {
         }
     }
 
-    /** Show all the commit history */
+    /** Show commit history in the current branch*/
     public static void logCommand() {
         // Get the current commit's id
         String currentID = readContentsAsString(getBranch());
@@ -194,6 +194,25 @@ public class Repository {
             System.out.println(currentCommit.getMessage());
             System.out.println("");
             currentID = currentCommit.getParentID();
+        }
+    }
+
+    /** Show commit history of all branch */
+    public static void globalLogCommand() {
+        // Iterate through all files in objects, if commit then print
+        List<String> filenames = plainFilenamesIn(objects);
+        for (String filename : filenames) {
+            File f = join(objects, filename);
+            try {
+                Commit c = readObject(f, Commit.class);
+
+                System.out.println("===");
+                System.out.println("commit " + c.getID());
+                System.out.println("Date: " + c.getDate());
+                System.out.println(c.getMessage());
+                System.out.println("");
+            } catch (IllegalArgumentException e) {
+            }
         }
     }
 
