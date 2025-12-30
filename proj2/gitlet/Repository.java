@@ -37,17 +37,23 @@ public class Repository {
      * The staging area
      */
     // Addition
-    public static  File index = join(GITLET_DIR, "index");
+    public static File index = join(GITLET_DIR, "index");
     // Removal
     public static File removal = join(GITLET_DIR, "removal");
 
-    /** The HEAD to points on current working branch */
+    /**
+     * The HEAD to points on current working branch
+     */
     public static File head = join(GITLET_DIR, "head");
 
-    /** The Branches directory to save all the branches */
+    /**
+     * The Branches directory to save all the branches
+     */
     public static final File branches = join(GITLET_DIR, "branches");
 
-    /** The directory to save blob */
+    /**
+     * The directory to save blob
+     */
     public static final File objects = join(GITLET_DIR, "objects");
 
     /* TODO: fill in the rest of this class. */
@@ -93,7 +99,9 @@ public class Repository {
 
     }
 
-    /** Add the current file into staging area */
+    /**
+     * Add the current file into staging area
+     */
     public static void addCommand(String filename) {
         // Make a HashMap to save filename -> hashText
         @SuppressWarnings("unchecked")
@@ -118,7 +126,9 @@ public class Repository {
         writeObject(index, stageFile);
     }
 
-    /** Commit changes in staging area and removal area*/
+    /**
+     * Commit changes in staging area and removal area
+     */
     public static void commitCommand(String message) {
         objects.mkdir();
 
@@ -163,7 +173,9 @@ public class Repository {
         writeObject(removal, removalFile);
     }
 
-    /** Remove file */
+    /**
+     * Remove file
+     */
     public static void rmCommand(String filename) {
         @SuppressWarnings("unchecked")
         Set<String> removalSet = readObject(removal, HashSet.class);
@@ -182,7 +194,9 @@ public class Repository {
         }
     }
 
-    /** Show commit history in the current branch*/
+    /**
+     * Show commit history in the current branch
+     */
     public static void logCommand() {
         // Get the current commit's id
         String currentID = readContentsAsString(getBranch());
@@ -197,7 +211,9 @@ public class Repository {
         }
     }
 
-    /** Show commit history of all branch */
+    /**
+     * Show commit history of all branch
+     */
     public static void globalLogCommand() {
         // Iterate through all files in objects, if commit then print
         List<String> filenames = plainFilenamesIn(objects);
@@ -216,7 +232,9 @@ public class Repository {
         }
     }
 
-    /** Find the commit with commit message */
+    /**
+     * Find the commit with commit message
+     */
     public static void findCommand(String message) {
         // Iterate through all file in objects
         String currentID = readContentsAsString(getBranch());
@@ -234,14 +252,18 @@ public class Repository {
         }
     }
 
-    /** Checkout file in current commit */
+    /**
+     * Checkout file in current commit
+     */
     public static void checkoutFileCommand(String filename) {
         // If checkout current commit and filename
         String commitID = readContentsAsString(getBranch());
         checkoutFileInCommitCommand(commitID, filename);
     }
 
-    /** Checkout file in specific commit */
+    /**
+     * Checkout file in specific commit
+     */
     public static void checkoutFileInCommitCommand(String commitID, String filename) {
         // Get current commit
         Commit currentCommit = getCommit(commitID);
@@ -267,7 +289,9 @@ public class Repository {
         }
     }
 
-    /** Checkout branch */
+    /**
+     * Checkout branch
+     */
     public static void checkoutBranchCommand(String branchname) {
         // If branch does not exist
         List<String> branchList = plainFilenamesIn(branches);
@@ -288,73 +312,343 @@ public class Repository {
             System.out.println("No need to checkout current branch. ");
         }
 
-        // Check if file in CWD will be overwritten or file is untracked, return if true
-        // Current branch
-        Commit currentCommit = getCurrentCommit();
-        HashMap<String, String> currentBlob = currentCommit.getBlobs();
-        @SuppressWarnings("unchecked")
-        HashMap<String, String> stagedFile = readObject(index, HashMap.class);
+        // Check if file in CWD if it is untracked or will be overwritten in new branch
+        boolean untracked = checkUntracked();
+        boolean overWritten = checkOverwritten(branchname);
 
-        // New branch
-        File newBranch = join(branches, branchname);
-        Commit newCommit = getCommit(readContentsAsString(newBranch));
-        HashMap<String, String> newBlobs= newCommit.getBlobs();
-
-        // Iterate
-        List<String> filenames = plainFilenamesIn(CWD);
-        for (String filename : filenames) {
-            boolean untracked = (!currentBlob.containsKey(filename) && !stagedFile.containsKey(filename));
-            boolean willOverwritten = newBlobs.containsKey(filename);
-
-            // If it is tracked then no need to worry
-            if (untracked && willOverwritten) {
-                System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
-                return;
-            }
+        // If it is untracked && it be overwritten then printout error message and return
+        if (untracked && overWritten) {
+            System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
+            return;
         }
+
 
         // Move head pointer to points on this branch
         writeContents(head, branchname);
 
         // Override current working directory
+        // Get new branch commit
+        File newBranch = join(branches, branchname);
+        Commit newCommit = getCommit(readContentsAsString(newBranch));
+        HashMap<String, String> newBlobs = newCommit.getBlobs();
+
         for (String filename : newBlobs.keySet()) {
             String hashID = newBlobs.get(filename);
             File f = join(CWD, filename);
             writeContents(f, getContent(hashID));
         }
-
     }
 
-    /** Creates a new branch with the given name, and points it at the current head commit. */
+    /**
+     * Creates a new branch with the given name, and points it at the current head commit.
+     */
     public static void branchCommand(String branchname) {
         File newBranch = join(branches, branchname);
         Commit currentCommit = getCurrentCommit();
         writeContents(newBranch, currentCommit.getID());
     }
 
+    /**
+     * Displays what branches currently exist, and marks the current branch with a *.
+     * Displays what files have been staged for addition or removal
+     */
+    public static void statusCommand() {
+        // Show all branches
+        System.out.println("=== Branches ===");
+        showBranches();
+
+
+        // Show staged file
+        System.out.println("=== Staged Files ===");
+        showStagedFile();
+
+        // Show removal file
+        System.out.println("=== Removed Files ===");
+        showRemovalFile();
+
+        // TODO: Show modified but not staged files
+        System.out.println("=== Modifications Not Staged For Commit ===");
+        // showModifiedFile();
+
+        // Show untracked file
+        System.out.println("=== Untracked Files ===");
+        showUntrackedFile();
+    }
+
+    /**  Merges files from the given branch into the current branch. */
+    public static void mergeCommand(String givenBranch) {
+        // Consider split point(latest common ancestor) from the current branch and given branch
+        String splitPointID = findSplitPoint(givenBranch);
+        Commit splitPoint = getCommit(splitPointID);
+
+        // If the split point is the same commit as the given branch (New commit on current branch but no commit in given branch)
+        // Just Compare their ID (Since id is unique)
+        // Find branch commit
+        File branchFile = join(branches, givenBranch);
+        String branchCommitID = readContentsAsString(branchFile);
+
+        // If branchCommitID is just split point
+        if (branchCommitID.equals(splitPointID)) {
+            System.out.println("Given branch is an ancestor of the current branch.");
+            return;
+        }
+
+        // If the split point is the current branch, then the effect is to check out the given branch (New commit on given branch but no commit in current branch)
+        String currentCommitID = readContentsAsString(getBranch());
+
+        if (currentCommitID.equals(splitPointID)) {
+            System.out.println("Current branch fast-forwarded");
+            checkoutBranchCommand(givenBranch);
+        }
+
+        // If branch file modified after split point but not modified in current then override CWD file to branch file
+        // Get files that are modified in branch
+        Commit branchCommit = getCommit(branchCommitID);
+        HashMap<String, String> branchBlobs = branchCommit.getBlobs();
+        HashSet<String> modifiedFiles = new HashSet<>();
+        for (String filename : branchBlobs.keySet()) {
+            // If modified then add to modifiedFiles list
+            if (isModified(filename, splitPoint)) {
+                modifiedFiles.add(filename);
+            }
+        }
+
+        // Get files that are not modified in CWD
+        List<String> CWDFiles = plainFilenamesIn(CWD);
+        for (String filename : CWDFiles) {
+            // If not modified since split point and modified in branch
+            if (!isModified(filename, splitPoint) && modifiedFiles.contains(filename)) {
+                // Write branchContent into CWD files
+                File f = join(CWD, filename);
+                String branchID = branchBlobs.get(filename);
+                String newContent = getContent(branchID);
+                writeContents(f, newContent);
+            }
+        }
+    }
+
     /** Helper method */
 
-    /** Return commit by id */
+    /**
+     * Return commit by id
+     */
     public static Commit getCommit(String id) {
         File commitFile = join(objects, id);
         Commit currentCommit = readObject(commitFile, Commit.class);
         return currentCommit;
     }
 
-    /** Return current working branch */
+    /**
+     * Return current working branch
+     */
     public static File getBranch() {
         return join(branches, readContentsAsString(head));
     }
 
-    /** Get current commit */
+    /**
+     * Get current commit
+     */
     public static Commit getCurrentCommit() {
         String currentID = readContentsAsString(getBranch());
         return getCommit(currentID);
     }
 
-    /** Get content by hashID */
+    /**
+     * Get content by hashID
+     */
     public static String getContent(String hashID) {
         File f = join(objects, hashID);
         return readContentsAsString(f);
+    }
+
+    /** Check CWD if there is file untracked and return untracked filename list*/
+    public static ArrayList<String> getUntrackedFile() {
+        Commit currentCommit = getCurrentCommit();
+        // Read current blob
+        HashMap<String, String> currentBlob = currentCommit.getBlobs();
+
+        // Read stagedFile
+        @SuppressWarnings("unchecked")
+        HashMap<String, String> stagedFile = readObject(index, HashMap.class);
+
+        // If a file is not in blob or not in stagedFile then it is untracked
+        List<String> filenames = plainFilenamesIn(CWD);
+        ArrayList<String> untrackedFiles = new ArrayList<>();
+        for (String filename : filenames) {
+            if (!currentBlob.containsKey(filename) && !stagedFile.containsKey(filename)) {
+                untrackedFiles.add(filename);
+            }
+        }
+        return untrackedFiles;
+    }
+
+    /** Return true if there is untracked file */
+    public static boolean checkUntracked() {
+        Commit currentCommit = getCurrentCommit();
+        // Read current blob
+        HashMap<String, String> currentBlob = currentCommit.getBlobs();
+
+        // Read stagedFile
+        @SuppressWarnings("unchecked")
+        HashMap<String, String> stagedFile = readObject(index, HashMap.class);
+
+        // If a file is not in blob or not in stagedFile then it is untracked
+        List<String> filenames = plainFilenamesIn(CWD);
+        for (String filename : filenames) {
+            if (!currentBlob.containsKey(filename) && !stagedFile.containsKey(filename)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Check will be overwritten for checkout to new branch */
+    public static boolean checkOverwritten(String branchname) {
+        // New branch
+        File newBranch = join(branches, branchname);
+        Commit newCommit = getCommit(readContentsAsString(newBranch));
+        HashMap<String, String> newBlobs = newCommit.getBlobs();
+
+        // Iterate
+        List<String> filenames = plainFilenamesIn(CWD);
+        for (String filename : filenames) {
+            // If there is same file inside new branch then will be overwritten
+            if (newBlobs.containsKey(filename)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Iterate all branches and printout
+     */
+    public static void showBranches() {
+        // Get the current branches first (* infront current branch)
+        String currentBranch = readContentsAsString(head);
+
+        // Iterate all branch in branches
+        List<String> branchNames = plainFilenamesIn(branches);
+        for (String branchName : branchNames) {
+            // if branchName is current branch then add *
+            if (branchName.equals(currentBranch)) {
+                System.out.println("*" + branchName);
+            } else {  // if branchName is just branch ewe
+                System.out.println(branchName);
+            }
+        }
+
+        // Make space for next msg
+        System.out.println("\n");
+    }
+
+    /**
+     * Iterate file inside index and printout
+     */
+    public static void showStagedFile() {
+        // Get blob and iterate key(a.k.a filename)
+        @SuppressWarnings("unchecked")
+        HashMap<String, String> stagedFiles = readObject(index, HashMap.class);
+        if (stagedFiles.isEmpty()) {
+            System.out.print("");
+        } else {
+            for (String filename : stagedFiles.keySet()) {
+                System.out.println(filename);
+            }
+            // Make space for next msg
+            System.out.println("\n");
+        }
+    }
+
+    /**
+     * Iterate file inside removal and printout
+     */
+    public static void showRemovalFile() {
+        // Iterate file inside removal and printout
+        @SuppressWarnings("unchecked")
+        HashSet<String> files = readObject(removal, HashSet.class);
+        if (files.isEmpty()) {
+            System.out.print("");
+        } else {
+            for (String filename : files) {
+                System.out.println(filename);
+            }
+            // Make space for next msg
+            System.out.println("\n");
+        }
+    }
+
+    // Iterate untracked file list and printout */
+    public static void showUntrackedFile() {
+        // Get untracked file list
+        ArrayList<String> untrackedFiles = getUntrackedFile();
+
+        // Iterate the list and printout
+        // If the list is null then print ""
+        if (untrackedFiles.isEmpty()) {
+            System.out.print("");
+        } else {  // Do iteration
+            for (String filename : untrackedFiles) {
+                System.out.println(filename);
+            }
+        }
+        // No need to make space since it is last
+    }
+
+    /** Return split point's commit ID on current branch and given branch */
+    public static String findSplitPoint(String branchname) {
+        // Save current branch ancestor and use containskey (Since this is O(n))
+        HashSet<String> currentAncestor = new HashSet<>();
+
+        String currentID = readContentsAsString(getBranch());
+
+        // Iterate all parents in current branch
+        while (currentID != "") {
+            Commit currentCommit = getCommit(currentID);
+            currentAncestor.add(currentCommit.getID());
+            currentID = currentCommit.getParentID();
+        }
+
+        // Iterate all parents in given branch
+        File givenBranch = join(branches, branchname);
+        String branchCommitID = readContentsAsString(givenBranch);
+
+        while (branchCommitID != "") {
+            if (currentAncestor.contains(branchCommitID)) {
+                return branchCommitID;
+            }
+            Commit branchCommit = getCommit(branchCommitID);
+            branchCommitID = branchCommit.getParentID();
+        }
+        return null;
+    }
+
+    /**
+     * Return true if a file is modified from a commit
+     * */
+    public static boolean isModified(String filename, Commit c) {
+        // Find same file in given Commit
+        HashMap<String, String> givenBlobs = c.getBlobs();
+
+        // If the file is in givenCommit then look inside if it is modified, if not then it is modified
+        // If the there is same file in both commit then compare their content
+        if (givenBlobs.containsKey(filename)) {
+            // Get original content
+            String originalHashID = givenBlobs.get(filename);
+            String originalContent = getContent(originalHashID);
+
+            // Get new content
+            String newHashID = sha1(filename);
+            String newContent = getContent(newHashID);
+
+            // Compare two content, if different then return true, else return false
+            if (!newContent.equals(originalContent)) {
+                return true;
+            } else {
+                return false;
+            }
+        } else {  // If the file is new added
+            return true;
+        }
     }
 }

@@ -69,6 +69,14 @@ public class Main {
                 String branchname = args[1];
                 Repository.branchCommand(branchname);
                 break;
+            case "status":
+                // TODO: handle the `status` command
+                Repository.statusCommand();
+                break;
+            case "merge":
+                // TODO: handle the `merge [branchname]` command
+                String givenBranch = args[1];
+                Repository.mergeCommand(givenBranch);
         }
     }
 }
