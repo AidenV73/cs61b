@@ -206,7 +206,7 @@ public class Repository {
             System.out.println("commit " + currentCommit.getID());
             System.out.println("Date: " + currentCommit.getDate());
             System.out.println(currentCommit.getMessage());
-            System.out.println("");
+            System.out.println();
             currentID = currentCommit.getParentID();
         }
     }
@@ -226,7 +226,7 @@ public class Repository {
                 System.out.println("commit " + c.getID());
                 System.out.println("Date: " + c.getDate());
                 System.out.println(c.getMessage());
-                System.out.println("");
+                System.out.println();
             } catch (IllegalArgumentException e) {
             }
         }
@@ -299,6 +299,7 @@ public class Repository {
         for (String filename : branchList) {
             if (filename.equals(branchname)) {
                 exist = true;
+                break;
             }
         }
 
@@ -399,30 +400,103 @@ public class Repository {
         if (currentCommitID.equals(splitPointID)) {
             System.out.println("Current branch fast-forwarded");
             checkoutBranchCommand(givenBranch);
+            return;
         }
 
-        // If branch file modified after split point but not modified in current then override CWD file to branch file
+        /** Get modified files of current and branch then do merge by different condition */
+
         // Get files that are modified in branch
         Commit branchCommit = getCommit(branchCommitID);
         HashMap<String, String> branchBlobs = branchCommit.getBlobs();
-        HashSet<String> modifiedFiles = new HashSet<>();
+        HashSet<String> modifiedFilesInBranch = new HashSet<>();
         for (String filename : branchBlobs.keySet()) {
             // If modified then add to modifiedFiles list
             if (isModified(filename, splitPoint)) {
-                modifiedFiles.add(filename);
+                modifiedFilesInBranch.add(filename);
             }
         }
 
-        // Get files that are not modified in CWD
+        // Get files that are modified in CWD
+        HashSet<String> allFilesInCurrentAndCWD = new HashSet<>();
         List<String> CWDFiles = plainFilenamesIn(CWD);
-        for (String filename : CWDFiles) {
-            // If not modified since split point and modified in branch
-            if (!isModified(filename, splitPoint) && modifiedFiles.contains(filename)) {
-                // Write branchContent into CWD files
+        HashSet<String> currentFiles = (HashSet<String>) getCommit(currentCommitID).getBlobs().keySet();
+        allFilesInCurrentAndCWD.addAll(CWDFiles);
+        allFilesInCurrentAndCWD.addAll(currentFiles);
+
+        HashSet<String> modifiedFilesInCurrent = new HashSet<>();
+        for (String filename: allFilesInCurrentAndCWD) {
+            if (isModified(filename, splitPoint)) {
+                modifiedFilesInCurrent.add(filename);
+            }
+        }
+
+        // Conditions
+        // Iterate all files in CWD, current commit, branch commit
+        HashSet<String> allFiles = new HashSet<>();
+        allFiles.addAll(allFilesInCurrentAndCWD);
+        allFiles.addAll(branchBlobs.keySet());
+
+        for (String filename : allFiles) {
+            // Get current content
+            File currentFile = join(CWD, filename);
+            String currentContent = "";
+            if (currentFile.exists()) {
+                currentContent = readContentsAsString(currentFile);
+            }
+
+            // Get branch content
+            String branchFileID = branchBlobs.get(filename);
+            String branchContent = getContent(branchFileID);
+
+            // If not modified since split point and modified in branch then override
+            if (!modifiedFilesInCurrent.contains(filename) && modifiedFilesInBranch.contains(filename)) {
+                // If deleted in current
+                if (!CWDFiles.contains(filename)) {
+                    printError("", branchContent);
+                } else {
+                    // Write branchContent into CWD file
+                    writeContents(currentFile, branchContent);
+                    // Add file to staged area
+                    addCommand(filename);
+                }
+            }
+            // If modified since split point and not modified in branch then stay
+            else if (modifiedFilesInCurrent.contains(filename) && !modifiedFilesInBranch.contains(filename)) {
+                // If current modified but deleted in branch
+                if (!branchBlobs.containsKey(filename)) {
+                    printError(currentContent, "");
+                }
+            }
+            // If modified in both then check if same content or both deleted, if so stay
+            else if (modifiedFilesInCurrent.contains(filename) && modifiedFilesInBranch.contains(filename)) {
+                // Compare content and check it is deleted in both
+                if (currentContent.equals(branchContent) || (!CWDFiles.contains(filename) && !branchBlobs.containsKey(filename))) {
+                    continue;
+                } else {
+                    // If content are different
+                    if (!currentContent.equals(branchContent)) {
+                        printError(currentContent, branchContent);
+                    }
+                }
+            }
+            // If added after split point in current but not exist in branch then stay
+            else if (modifiedFilesInCurrent.contains(filename) && !branchBlobs.containsKey(filename)) {
+                continue;
+            }
+            // If added in branch after split point but not exist in current then add and staged
+            else if (!CWDFiles.contains(filename) && modifiedFilesInBranch.contains(filename)) {
                 File f = join(CWD, filename);
-                String branchID = branchBlobs.get(filename);
-                String newContent = getContent(branchID);
-                writeContents(f, newContent);
+                writeContents(f, branchContent);
+                addCommand(filename);
+            }
+            // If not modified in current and missed in branch then delete it from ur computer
+            else if (splitPoint.getBlobs().containsKey(filename) && !modifiedFilesInCurrent.contains(filename) && !branchBlobs.containsKey(filename)) {
+                File f = join(CWD, filename);
+                f.delete();
+            }
+            // If not modified in branch and missed in current then add to removal
+            else if (!CWDFiles.contains(filename) && modifiedFilesInBranch.contains(filename)) {
+                rmCommand(filename);
             }
         }
     }
@@ -458,7 +532,11 @@ public class Repository {
      */
     public static String getContent(String hashID) {
         File f = join(objects, hashID);
-        return readContentsAsString(f);
+        if (f.exists()) {
+            return readContentsAsString(f);
+        } else {
+            return "";
+        }
     }
 
     /** Check CWD if there is file untracked and return untracked filename list*/
@@ -642,13 +720,18 @@ public class Repository {
             String newContent = getContent(newHashID);
 
             // Compare two content, if different then return true, else return false
-            if (!newContent.equals(originalContent)) {
-                return true;
-            } else {
-                return false;
-            }
+            return !newContent.equals(originalContent);
         } else {  // If the file is new added
             return true;
         }
+    }
+
+    /** Print error message to avoid redundant */
+    public static void printError(String currentContent, String branchContent) {
+        System.out.println("<<<<<<< HEAD");
+        System.out.println(currentContent);
+        System.out.println("=======");
+        System.out.println(branchContent);
+        System.out.println(">>>>>>>");
     }
 }
