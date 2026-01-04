@@ -109,6 +109,10 @@ public class Repository {
 
         // Hash fileText
         File currentFile = join(CWD, filename);
+        if (!currentFile.exists()) {
+            System.out.println("File does not exist");
+            return;
+        }
         String fileText = readContentsAsString(currentFile);
 
         String hashText = sha1(fileText);  // Also use as blobID
@@ -184,6 +188,7 @@ public class Repository {
         HashMap<String, String> stagedFile = readObject(index, HashMap.class);
         if (stagedFile.containsKey(filename)) {
             stagedFile.remove(filename);
+            writeObject(index, stagedFile);
         } else {
             // If tracked by current commit then add into removal area
             removalSet.add(filename);
@@ -318,10 +323,10 @@ public class Repository {
         boolean overWritten = checkOverwritten(branchname);
 
         // If it is untracked && it be overwritten then printout error message and return
-        if (untracked && overWritten) {
+        /**if (untracked && overWritten) {
             System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
             return;
-        }
+        }*/
 
 
         // Move head pointer to points on this branch
@@ -357,19 +362,22 @@ public class Repository {
         // Show all branches
         System.out.println("=== Branches ===");
         showBranches();
-
+        System.out.println();
 
         // Show staged file
         System.out.println("=== Staged Files ===");
         showStagedFile();
+        System.out.println();
 
         // Show removal file
         System.out.println("=== Removed Files ===");
         showRemovalFile();
+        System.out.println();
 
         // TODO: Show modified but not staged files
         System.out.println("=== Modifications Not Staged For Commit ===");
-        // showModifiedFile();
+        showModifiedButNotStagedFile();
+        System.out.println();
 
         // Show untracked file
         System.out.println("=== Untracked Files ===");
@@ -378,6 +386,34 @@ public class Repository {
 
     /**  Merges files from the given branch into the current branch. */
     public static void mergeCommand(String givenBranch) {
+        // Failure case
+        // If there is uncommitted change
+        @SuppressWarnings("unchecked")
+        HashMap<String, String> stagedFiles = readObject(index, HashMap.class);
+        HashSet<String> removalFiles = readObject(removal, HashSet.class);
+        if (!stagedFiles.isEmpty() || !removalFiles.isEmpty()) {
+            System.out.println("You have uncommitted changes.");
+            return;
+        }
+
+        // If branch does not exist
+        List<String> allBranch = plainFilenamesIn(branches);
+        if (!allBranch.contains(givenBranch)) {
+            System.out.println("A branch with that name does not exist.");
+            return;
+        }
+
+        // If merge current branch
+        if (readContentsAsString(head).equals(givenBranch)) {
+            System.out.println("Cannot merge a branch with itself.");
+            return;
+        }
+
+        // If there is untracked file
+        if (checkUntracked()) {
+            System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
+            return;
+        }
         // Consider split point(latest common ancestor) from the current branch and given branch
         String splitPointID = findSplitPoint(givenBranch);
         Commit splitPoint = getCommit(splitPointID);
@@ -411,7 +447,7 @@ public class Repository {
         HashSet<String> modifiedFilesInBranch = new HashSet<>();
         for (String filename : branchBlobs.keySet()) {
             // If modified then add to modifiedFiles list
-            if (isModified(filename, splitPoint)) {
+            if (isModifiedBetweenCommit(filename, branchCommit, splitPoint)) {
                 modifiedFilesInBranch.add(filename);
             }
         }
@@ -419,13 +455,13 @@ public class Repository {
         // Get files that are modified in CWD
         HashSet<String> allFilesInCurrentAndCWD = new HashSet<>();
         List<String> CWDFiles = plainFilenamesIn(CWD);
-        HashSet<String> currentFiles = (HashSet<String>) getCommit(currentCommitID).getBlobs().keySet();
+        Set<String> currentFiles = getCommit(currentCommitID).getBlobs().keySet();
         allFilesInCurrentAndCWD.addAll(CWDFiles);
         allFilesInCurrentAndCWD.addAll(currentFiles);
 
         HashSet<String> modifiedFilesInCurrent = new HashSet<>();
         for (String filename: allFilesInCurrentAndCWD) {
-            if (isModified(filename, splitPoint)) {
+            if (isModifiedInCWD(filename, splitPoint)) {
                 modifiedFilesInCurrent.add(filename);
             }
         }
@@ -437,19 +473,12 @@ public class Repository {
         allFiles.addAll(branchBlobs.keySet());
 
         for (String filename : allFiles) {
-            // Get current content
             File currentFile = join(CWD, filename);
-            String currentContent = "";
-            if (currentFile.exists()) {
-                currentContent = readContentsAsString(currentFile);
-            }
-
-            // Get branch content
-            String branchFileID = branchBlobs.get(filename);
-            String branchContent = getContent(branchFileID);
 
             // If not modified since split point and modified in branch then override
             if (!modifiedFilesInCurrent.contains(filename) && modifiedFilesInBranch.contains(filename)) {
+                // Get branch content
+                String branchContent = getBranchContent(filename, branchBlobs);
                 // If deleted in current
                 if (!CWDFiles.contains(filename)) {
                     printError("", branchContent);
@@ -463,12 +492,17 @@ public class Repository {
             // If modified since split point and not modified in branch then stay
             else if (modifiedFilesInCurrent.contains(filename) && !modifiedFilesInBranch.contains(filename)) {
                 // If current modified but deleted in branch
+                String currentContent = getCWDContent(filename);
                 if (!branchBlobs.containsKey(filename)) {
                     printError(currentContent, "");
                 }
             }
+
+
             // If modified in both then check if same content or both deleted, if so stay
             else if (modifiedFilesInCurrent.contains(filename) && modifiedFilesInBranch.contains(filename)) {
+                String currentContent = getCWDContent(filename);
+                String branchContent = getBranchContent(filename, branchBlobs);
                 // Compare content and check it is deleted in both
                 if (currentContent.equals(branchContent) || (!CWDFiles.contains(filename) && !branchBlobs.containsKey(filename))) {
                     continue;
@@ -476,15 +510,18 @@ public class Repository {
                     // If content are different
                     if (!currentContent.equals(branchContent)) {
                         printError(currentContent, branchContent);
+                        continue;
                     }
                 }
             }
+
             // If added after split point in current but not exist in branch then stay
             else if (modifiedFilesInCurrent.contains(filename) && !branchBlobs.containsKey(filename)) {
-                continue;
+                return;
             }
             // If added in branch after split point but not exist in current then add and staged
             else if (!CWDFiles.contains(filename) && modifiedFilesInBranch.contains(filename)) {
+                String branchContent = getBranchContent(filename, branchBlobs);
                 File f = join(CWD, filename);
                 writeContents(f, branchContent);
                 addCommand(filename);
@@ -615,9 +652,6 @@ public class Repository {
                 System.out.println(branchName);
             }
         }
-
-        // Make space for next msg
-        System.out.println("\n");
     }
 
     /**
@@ -633,8 +667,6 @@ public class Repository {
             for (String filename : stagedFiles.keySet()) {
                 System.out.println(filename);
             }
-            // Make space for next msg
-            System.out.println("\n");
         }
     }
 
@@ -651,12 +683,43 @@ public class Repository {
             for (String filename : files) {
                 System.out.println(filename);
             }
-            // Make space for next msg
-            System.out.println("\n");
         }
     }
 
-    // Iterate untracked file list and printout */
+    /** Iterate all file in CWD and printout modifications that is untracked */
+    public static void showModifiedButNotStagedFile() {
+        // Get CWD files
+        List<String> CWDfiles = plainFilenamesIn(CWD);
+
+        // Get latest commit
+        Commit latestCommit = getCommit(readContentsAsString(getBranch()));
+        HashMap<String, String> latestBlobs = latestCommit.getBlobs();
+
+        // Get all files
+        HashSet<String> allFiles = new HashSet<>();
+        allFiles.addAll(CWDfiles);
+        allFiles.addAll(latestBlobs.keySet());
+
+        // Get staged file
+        @SuppressWarnings("unchecked")
+        HashMap<String, String> stagedFiles = readObject(index, HashMap.class);
+
+        // Iterate all file and check if it is modified and not staged
+        for (String filename : allFiles) {
+            // If exist in latest commit and CWD then is modified
+            if (isModifiedInCWD(filename, latestCommit) && !stagedFiles.containsKey(filename)) {
+                // Add file that is modified
+                System.out.println(filename + "(modified)");
+            }
+            // If exist in latest commit but rm in CWD
+            else if (latestBlobs.containsKey(filename) && !CWDfiles.contains(filename)) {
+                System.out.println(filename + "(deleted)");
+            }
+
+        }
+    }
+
+    /** Iterate untracked file list and printout */
     public static void showUntrackedFile() {
         // Get untracked file list
         ArrayList<String> untrackedFiles = getUntrackedFile();
@@ -670,7 +733,6 @@ public class Repository {
                 System.out.println(filename);
             }
         }
-        // No need to make space since it is last
     }
 
     /** Return split point's commit ID on current branch and given branch */
@@ -701,27 +763,64 @@ public class Repository {
         return null;
     }
 
+    /** Return content of branch latest commit */
+    public static String getBranchContent(String filename, HashMap<String, String> branchBlobs) {
+        String branchID = branchBlobs.get(filename);
+        return getContent(branchID);
+    }
+
+    /** Return content of CWD */
+    public static String getCWDContent(String filename) {
+        File f = join(CWD, filename);
+        return readContentsAsString(f);
+    }
+
     /**
-     * Return true if a file is modified from a commit
+     * Return true if a file in CWD is modified from a commit
      * */
-    public static boolean isModified(String filename, Commit c) {
-        // Find same file in given Commit
+    public static boolean isModifiedInCWD(String filename, Commit c) {
+        // Get files in CWD
+        List<String> CWDFiles = plainFilenamesIn(CWD);
+
+        // Get file in current commit
         HashMap<String, String> givenBlobs = c.getBlobs();
 
-        // If the file is in givenCommit then look inside if it is modified, if not then it is modified
-        // If the there is same file in both commit then compare their content
-        if (givenBlobs.containsKey(filename)) {
-            // Get original content
-            String originalHashID = givenBlobs.get(filename);
-            String originalContent = getContent(originalHashID);
+        if (CWDFiles.contains(filename) && givenBlobs.containsKey(filename)) {
+            File f = join(CWD, filename);
+            String currentContent = readContentsAsString(f);
 
-            // Get new content
-            String newHashID = sha1(filename);
-            String newContent = getContent(newHashID);
+            String givenContent = getContent(givenBlobs.get(filename));
 
-            // Compare two content, if different then return true, else return false
-            return !newContent.equals(originalContent);
-        } else {  // If the file is new added
+            if (currentContent.equals(givenContent)) {
+                return false;
+            } else {
+                 return true;
+            }
+        }
+        // If exist in CWD but missing at givenCommit (Added)
+        else if (CWDFiles.contains(filename) && !givenBlobs.containsKey(filename)) {
+            return true;
+        }
+        // If exist in givenCommit but missing at CWD
+        else if (!CWDFiles.contains(filename) && givenBlobs.containsKey(filename)) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    /** Return true if a file is modified between two commit */
+    public static boolean isModifiedBetweenCommit(String filename, Commit c1, Commit c2) {
+        HashMap<String, String> b1 = c1.getBlobs();
+        String contentHash1 = b1.get(filename);
+
+        HashMap<String, String> b2 = c2.getBlobs();
+        String contentHash2 = b2.get(filename);
+
+        if (contentHash1.equals(contentHash2)) {
+            return false;
+        } else {
             return true;
         }
     }
